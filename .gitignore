@@ -1,4 +1,7 @@
 *.o
 /tp3
+/createCountFile
 /Ressources_Sup
 /TP3.pdf
+/count.txt
+*~

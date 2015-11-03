@@ -4,6 +4,9 @@
 #include <bitset>        
 #include <vector>
 
+#include <cstdlib>
+#include <ctime>
+
 /**
  * Hamming (7,4)
  **/ 
@@ -23,7 +26,7 @@ using namespace std;
  * Read a file in binary and create a vector of bitset wih a width of 4 for each bitset
  * Return a vector bitset
  **/ 
-vector<bitset<N> > readFile(string filename)
+vector<bitset<N> > readFile( string filename )
 {
 	vector<bitset<N> > content;
 	ifstream reader;
@@ -31,7 +34,7 @@ vector<bitset<N> > readFile(string filename)
 	reader.open(filename.c_str(), ios::binary|ios::in);
 
 	if(DEBUG_RF)
-		cout << "Read : \t";
+		cout << "Read    :";
 
 	if(reader != NULL && reader.is_open())
 	{
@@ -46,8 +49,8 @@ vector<bitset<N> > readFile(string filename)
 	
 			if(DEBUG_RF)
 			{
-				cout << " |" << bsBufferMSB.to_string();
-				cout << " |" << bsBufferLSB.to_string();
+				cout << " |    " << bsBufferMSB.to_string();
+				cout << " |    " << bsBufferLSB.to_string();
 			}
 		}
 	}
@@ -68,7 +71,7 @@ vector<bitset<HAMMING_7> > HammingEncoding(vector<bitset<N> > bitsetVector)
 	vector<bitset<HAMMING_7> > encodedBitset;
 	
 	if(DEBUG_HE)
-		std::cout << "Encode : \t";
+		std::cout << "Encode  :";
 		
 	for(vector<bitset<N> >::iterator i = bitsetVector.begin(); i != bitsetVector.end();++i)
 	{
@@ -97,27 +100,158 @@ vector<bitset<HAMMING_7> > HammingEncoding(vector<bitset<N> > bitsetVector)
 	return encodedBitset;
 }
 
+const vector<bitset<HAMMING_7>>& Hamming7_4Generator() {
+	static vector<bitset<HAMMING_7>> generator;
+	static bool initialized = false;
+	
+	if ( ! initialized ) {
+		generator.push_back( bitset<HAMMING_7>( 0x70 ) );
+		generator.push_back( bitset<HAMMING_7>( 0x4C ) );
+		generator.push_back( bitset<HAMMING_7>( 0x2A ) );
+		generator.push_back( bitset<HAMMING_7>( 0x69 ) );
+	}
+
+	return generator;
+}
+
+
+/**
+ * 
+ **/
+template <int DEC_W, int ENC_W>
+vector<bitset<ENC_W> > GeneratorHammingEncoding( vector<bitset<DEC_W> > bitsetVector, const vector<bitset<ENC_W>>& generator )
+{
+	vector<bitset<HAMMING_7> > encodedBitset;
+	
+	if(DEBUG_HE)
+		std::cout << "Encode  :";
+		
+	for(vector<bitset<N> >::iterator i = bitsetVector.begin(); i != bitsetVector.end();++i)
+	{
+		bitset<DEC_W> inBuffer = *i;
+		bitset<ENC_W> outBuffer = 0;
+
+		for ( int i = 0; i < DEC_W; ++i ) {
+			if ( inBuffer[i] != 0 ) {
+				outBuffer ^= generator[i];
+			}
+		}
+		
+		if(DEBUG_HE)
+			cout << " | " << outBuffer.to_string();
+		
+		encodedBitset.push_back(outBuffer);
+	}
+	
+	if(DEBUG_HE)
+		cout << endl;
+	
+	return encodedBitset;
+}
+
+
+vector<bitset<N>> GeneratorHammingDecoding7_4( vector<bitset<HAMMING_7> > bitsetVector )
+{
+	vector<bitset<N> > encodedBitset;
+	
+	if(DEBUG_HE)
+		std::cout << "Decode  :";
+		
+	for(vector<bitset<HAMMING_7> >::const_iterator it = bitsetVector.begin(); it != bitsetVector.end(); ++it)
+	{
+		bitset<HAMMING_7> inBuffer = *it;
+		
+		bitset<HAMMING_7-N> syndrom = 0;
+		for ( int i = 0; i < HAMMING_7; ++i ) {
+			if ( inBuffer[HAMMING_7-i] != 0 ) {
+				syndrom ^= bitset<HAMMING_7-N>( i );
+			}
+		}
+		
+		int intSyndrom = syndrom.to_ulong();
+		
+		if(DEBUG_HE)
+			cout << " | " << intSyndrom;
+			
+		if ( intSyndrom != 0 ) {
+			inBuffer[intSyndrom] = ! inBuffer[intSyndrom];
+		}
+		
+		bitset<N> outBuffer = 0;
+		
+		outBuffer[0] = inBuffer[4];
+		outBuffer[1] = inBuffer[2];
+		outBuffer[2] = inBuffer[1];
+		outBuffer[3] = inBuffer[0];
+		
+		if(DEBUG_HE)
+			cout << "  " << outBuffer.to_string();
+		
+		encodedBitset.push_back(outBuffer);
+	}
+	
+	if(DEBUG_HE)
+		cout << endl;
+	
+	return encodedBitset;
+}
+
+template <int W>
+int HammingDistance( bitset<W> a, bitset<W> b ) {
+	int res = 0;
+	for ( int i = 0; i < W; ++i ) {
+		res += a[i] != b[i];
+	}
+	return res;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                     Main                                                       //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int main()
-{
- vector< bitset<N> > input_data;
- vector< bitset<HAMMING_7> > encode_data; 
+#define ERROR_PROP 0.03
 
- // Read data to encode
- input_data = readFile("test.txt");
- 
- // Encode by Hamming (7,4) coding
- encode_data = HammingEncoding(input_data);
- 
- // Inject error
- // TODO
+int main( int argc, char* argv[] )
+	{
+	vector< bitset<N> > input_data;
+	vector< bitset<HAMMING_7> > encoded_data;
+	vector< bitset<HAMMING_7> > errored_data;
+	vector< bitset<N> > decoded_data;
 
- // Decode
- // TODO
+	// Read data to encode
+	input_data = readFile( argv[1] );
 
+	// Encode by Hamming (7,4) coding
+	encoded_data = GeneratorHammingEncoding<4,7>( input_data, Hamming7_4Generator() );
+
+	// Inject error
+	srand( time( NULL ) );
+	cout << "Errors  :";
+	for ( vector<bitset<HAMMING_7>>::const_iterator it = encoded_data.begin(); it != encoded_data.end(); ++it ) {
+		bitset<HAMMING_7> data = *it;
+		cout << " | ";
+		for ( int i = 0; i < HAMMING_7; ++i ) {
+			if ( rand() / (float) RAND_MAX < ERROR_PROP ) {
+				data[i] = ! data[i];
+				cout << '#';
+			} else {	
+				cout << '_';
+			}
+		}
+		errored_data.push_back( data );
+	}
+	cout << endl;
+
+	// Decode
+	decoded_data = GeneratorHammingDecoding7_4( errored_data );
+	
+	int errors = 0;
+	int position = 0;
+	for ( vector<bitset<N>>::const_iterator it = input_data.begin(); it != input_data.end(); ++it, ++position ) {
+		errors += HammingDistance<N>( *it, decoded_data[position] );
+	}
+	cout << "Errors: " << errors << endl;
+	cout << "Bits: " << input_data.size() * N << endl;
 }
 
 

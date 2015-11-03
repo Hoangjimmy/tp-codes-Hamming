@@ -15,7 +15,7 @@ OBJETS=$(SOURCES:%.cpp=%.o)
 
 #Compilateur et options de compilation
 CCPP=g++
-CFLAGS=-Wall -ansi -pedantic -ffast-math -I /usr/X11R6/include
+CFLAGS=-Wall -ansi -pedantic -std=c++11 -ffast-math -I /usr/X11R6/include
 
 
 LFLAGS= -L . -L /usr/X11R6/lib  -lpthread -lX11 -lXext -Dcimg_use_xshm  -lm
@@ -36,6 +36,12 @@ depend:
 	$(CCPP) -MM $(SOURCES) >> dependances
 	cat dependances >Makefile
 	rm dependances
+
+createCountFile: createCountFile.cpp
+	g++ $^ -o $@
+
+count.txt: createCountFile
+	$^
 
 #DEPENDANCIES
 main.o: main.cpp 
