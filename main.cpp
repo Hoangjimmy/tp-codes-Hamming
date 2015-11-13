@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <ctime>
+#include <limits>
 
 /**
  * Hamming (7,4)
@@ -115,10 +116,26 @@ const vector<bitset<HAMMING_7>>& Hamming7_4Generator() {
 }
 
 
+template <size_t DEC_W, size_t ENC_W>
+bitset<ENC_W> GeneratorHammingEncodeSymbol( const bitset<DEC_W>& inBuffer, const vector<bitset<ENC_W>>& generator ) {
+	bitset<ENC_W> outBuffer = 0;
+
+	for ( size_t i = 0; i < DEC_W; ++i ) {
+		if ( inBuffer[DEC_W-1-i] != 0 ) {
+			outBuffer ^= generator[i];
+		}
+	}
+	
+	if(false&&DEBUG_HE)
+		cout << " | " << outBuffer.to_string();
+	
+	return outBuffer;
+}
+
 /**
  * 
  **/
-template <int DEC_W, int ENC_W>
+template <size_t DEC_W, size_t ENC_W>
 vector<bitset<ENC_W> > GeneratorHammingEncoding( vector<bitset<DEC_W> > bitsetVector, const vector<bitset<ENC_W>>& generator )
 {
 	vector<bitset<HAMMING_7> > encodedBitset;
@@ -128,19 +145,7 @@ vector<bitset<ENC_W> > GeneratorHammingEncoding( vector<bitset<DEC_W> > bitsetVe
 		
 	for(vector<bitset<N> >::iterator i = bitsetVector.begin(); i != bitsetVector.end();++i)
 	{
-		bitset<DEC_W> inBuffer = *i;
-		bitset<ENC_W> outBuffer = 0;
-
-		for ( int i = 0; i < DEC_W; ++i ) {
-			if ( inBuffer[DEC_W-1-i] != 0 ) {
-				outBuffer ^= generator[i];
-			}
-		}
-		
-		if(DEBUG_HE)
-			cout << " | " << outBuffer.to_string();
-		
-		encodedBitset.push_back(outBuffer);
+		encodedBitset.push_back( GeneratorHammingEncodeSymbol( *i, generator ) );
 	}
 	
 	if(DEBUG_HE)
@@ -195,10 +200,10 @@ vector<bitset<N>> GeneratorHammingDecoding7_4( vector<bitset<HAMMING_7> > bitset
 	return encodedBitset;
 }
 
-template <int W>
-int HammingDistance( bitset<W> a, bitset<W> b ) {
-	int res = 0;
-	for ( int i = 0; i < W; ++i ) {
+template <size_t W>
+size_t HammingDistance( const bitset<W>& a, const bitset<W>& b ) {
+	size_t res = 0;
+	for ( size_t i = 0; i < W; ++i ) {
 		res += a[i] != b[i];
 	}
 	return res;
@@ -210,15 +215,14 @@ int HammingDistance( bitset<W> a, bitset<W> b ) {
 
 #define ERROR_PROP 0.01
 
-int main( int argc, char* argv[] )
-	{
+int main_encoder( string fileName ) {
 	vector< bitset<N> > input_data;
 	vector< bitset<HAMMING_7> > encoded_data;
 	vector< bitset<HAMMING_7> > errored_data;
 	vector< bitset<N> > decoded_data;
 
 	// Read data to encode
-	input_data = readFile( argv[1] );
+	input_data = readFile( fileName );
 
 	// Encode by Hamming (7,4) coding
 	encoded_data = GeneratorHammingEncoding<4,7>( input_data, Hamming7_4Generator() );
@@ -251,7 +255,46 @@ int main( int argc, char* argv[] )
 	}
 	cout << "Errors: " << errors << endl;
 	cout << "Bits: " << input_data.size() * N << endl;
+	
+	return 0;
 }
 
+int computeDistance( const vector<bitset<HAMMING_7>>& generator ) {
+	vector< bitset<HAMMING_7> > codes;
+	size_t len = 1 << N;
+	codes.reserve( len );
+	for ( size_t i = 0; i < len; ++i ) {
+		codes.push_back( GeneratorHammingEncodeSymbol( bitset<N>( i ), generator ) );
+	}
+	
+	int minDist = numeric_limits<int>::max();
+	
+	for ( size_t i = 0; i < len - 1; ++i ) {
+		for ( size_t j = i + 1; j < len; ++j ) {
+			int dist = HammingDistance( codes[i], codes[j] );
+			if ( dist < minDist ) {
+				minDist = dist;
+			}
+		}
+	}
+	
+	return minDist;
+}
 
+int main_distance() {
+	cout << "minimal distance: " << computeDistance( Hamming7_4Generator() ) << endl;
+	
+	return 0;
+}
 
+int main( int argc, char* argv[] ) {
+	switch ( argc ) {
+		case 1: return main_distance();
+		case 2: return main_encoder( argv[1] );
+		default:
+			cerr << "Unexpected arguments. Valid calls:" << endl
+				<< " ⋅ " << argv[0] << "             Compute minimal Hamming distance" << endl
+				<< " ⋅ " << argv[0] << " fileName    Encode <fileName>" << endl;
+			return 1;
+	}
+}
