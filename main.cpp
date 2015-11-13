@@ -49,8 +49,8 @@ vector<bitset<N> > readFile( string filename )
 	
 			if(DEBUG_RF)
 			{
-				cout << " |    " << bsBufferMSB.to_string();
-				cout << " |    " << bsBufferLSB.to_string();
+				cout << " | " << bsBufferMSB.to_string() << "   ";
+				cout << " | " << bsBufferLSB.to_string() << "   ";
 			}
 		}
 	}
@@ -105,10 +105,10 @@ const vector<bitset<HAMMING_7>>& Hamming7_4Generator() {
 	static bool initialized = false;
 	
 	if ( ! initialized ) {
-		generator.push_back( bitset<HAMMING_7>( 0x70 ) );
-		generator.push_back( bitset<HAMMING_7>( 0x4C ) );
+		generator.push_back( bitset<HAMMING_7>( 0x07 ) );
+		generator.push_back( bitset<HAMMING_7>( 0x19 ) );
 		generator.push_back( bitset<HAMMING_7>( 0x2A ) );
-		generator.push_back( bitset<HAMMING_7>( 0x69 ) );
+		generator.push_back( bitset<HAMMING_7>( 0x4B ) );
 	}
 
 	return generator;
@@ -132,7 +132,7 @@ vector<bitset<ENC_W> > GeneratorHammingEncoding( vector<bitset<DEC_W> > bitsetVe
 		bitset<ENC_W> outBuffer = 0;
 
 		for ( int i = 0; i < DEC_W; ++i ) {
-			if ( inBuffer[i] != 0 ) {
+			if ( inBuffer[DEC_W-1-i] != 0 ) {
 				outBuffer ^= generator[i];
 			}
 		}
@@ -149,7 +149,6 @@ vector<bitset<ENC_W> > GeneratorHammingEncoding( vector<bitset<DEC_W> > bitsetVe
 	return encodedBitset;
 }
 
-
 vector<bitset<N>> GeneratorHammingDecoding7_4( vector<bitset<HAMMING_7> > bitsetVector )
 {
 	vector<bitset<N> > encodedBitset;
@@ -163,8 +162,8 @@ vector<bitset<N>> GeneratorHammingDecoding7_4( vector<bitset<HAMMING_7> > bitset
 		
 		bitset<HAMMING_7-N> syndrom = 0;
 		for ( int i = 0; i < HAMMING_7; ++i ) {
-			if ( inBuffer[HAMMING_7-i] != 0 ) {
-				syndrom ^= bitset<HAMMING_7-N>( i );
+			if ( inBuffer[i] != 0 ) {
+				syndrom ^= bitset<HAMMING_7-N>( i + 1 );
 			}
 		}
 		
@@ -174,15 +173,15 @@ vector<bitset<N>> GeneratorHammingDecoding7_4( vector<bitset<HAMMING_7> > bitset
 			cout << " | " << intSyndrom;
 			
 		if ( intSyndrom != 0 ) {
-			inBuffer[intSyndrom] = ! inBuffer[intSyndrom];
+			inBuffer[intSyndrom-1] = ! inBuffer[intSyndrom-1];
 		}
 		
 		bitset<N> outBuffer = 0;
 		
-		outBuffer[0] = inBuffer[4];
-		outBuffer[1] = inBuffer[2];
-		outBuffer[2] = inBuffer[1];
-		outBuffer[3] = inBuffer[0];
+		outBuffer[0] = inBuffer[6];
+		outBuffer[1] = inBuffer[5];
+		outBuffer[2] = inBuffer[4];
+		outBuffer[3] = inBuffer[2];
 		
 		if(DEBUG_HE)
 			cout << "  " << outBuffer.to_string();
@@ -209,7 +208,7 @@ int HammingDistance( bitset<W> a, bitset<W> b ) {
 //                                                     Main                                                       //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define ERROR_PROP 0.03
+#define ERROR_PROP 0.01
 
 int main( int argc, char* argv[] )
 	{
@@ -230,7 +229,7 @@ int main( int argc, char* argv[] )
 	for ( vector<bitset<HAMMING_7>>::const_iterator it = encoded_data.begin(); it != encoded_data.end(); ++it ) {
 		bitset<HAMMING_7> data = *it;
 		cout << " | ";
-		for ( int i = 0; i < HAMMING_7; ++i ) {
+		for ( int i = HAMMING_7-1; i >= 0; --i ) {
 			if ( rand() / (float) RAND_MAX < ERROR_PROP ) {
 				data[i] = ! data[i];
 				cout << '#';
